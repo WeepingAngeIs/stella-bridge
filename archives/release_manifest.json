@@ -1,0 +1,16 @@
+{
+  "baseline": {
+    "bridge-logs-v1.py": "ef37632afc22de20f596e09623f4a5d6490d663df782de0f8ae53d62146f9b6d",
+    "bridge.py": "311ce0ed7158da6d6f8c0ad2fe05332dc8a8a50f173ad3a423d9c4397f526f2c",
+    "unit": "7f6190443a126a845f849438d6fc56a6cb2b5ecfb1312c3d31efcdab635a16e1"
+  },
+  "files": {
+    "README.txt": "cfa7246d307e479a6ff5cd7f17a2fb76065534e49dce7f791f96a5ba07ed755a",
+    "archive_reader.py": "28dfa5902a7696e68bf453a05b4dc1562ecf3ac1c7d1f6c57eddea609999e744",
+    "bridge_archives.py": "8d081a8047a8a7a57e45f2db7b746d599c5f8c03b185dde50fe17d31a4e04830",
+    "inspect_host.py": "1c3a0f17f027a4de1ddd0a9e37ef13aa6279778a9b5d05abaef382b1e1503eac",
+    "manage_archives.py": "23db5033ddc5f563fc241f892572548df33cb458de7352a1d0d7d37fd6e29cc6"
+  },
+  "installer_revision": 3,
+  "version": "archives-v1-candidate.2"
+}

@@ -1,0 +1,30 @@
+name: Saved Minecraft diagnostics
+on:
+  push:
+    paths: ['archives/**', '.github/workflows/archives.yml']
+  pull_request:
+    paths: ['archives/**', '.github/workflows/archives.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.13']
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install test-only MCP dependency
+        run: python -m pip install --disable-pip-version-check -r archives/requirements-test.txt
+      - name: Parser and Linux file tests
+        run: sudo "$(command -v python)" -B -m unittest discover -s archives/tests -v
+      - name: Actual MCP protocol with synthetic files and mock panel
+        run: sudo "$(command -v python)" -B archives/tests/protocol_smoke.py
