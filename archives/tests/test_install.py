@@ -52,11 +52,11 @@ class InstallTests(unittest.TestCase):
                             "DROP_DIR": self.dropdir, "DROP": self.drop, "ACCOUNT": "root",
                             "EXISTING_CONFIG": self.secret, "PYTHON": Path(sys.executable)}.items():
             self.stack.enter_context(patch.object(setup, name, value))
-        self.stack.enter_context(patch.object(setup, "run", side_effect=self.run))
+        self.stack.enter_context(patch.object(setup, "run", side_effect=self.fake_run))
         self.stack.enter_context(patch.object(setup, "preflight", return_value=self.config))
         self.stack.enter_context(patch.object(setup.time, "sleep"))
 
-    def run(self, command, **kwargs):
+    def fake_run(self, command, **kwargs):
         args = [str(x) for x in command]
         self.calls.append(args)
         if args[0] == "systemctl":
@@ -201,3 +201,4 @@ class InstallTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
