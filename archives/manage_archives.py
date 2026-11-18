@@ -30,6 +30,9 @@ PYTHON = BASE / "venv/bin/python"
 ACCOUNT = "stella-bridge"
 CODE_FILES = ("archive_reader.py", "bridge_archives.py")
 TOOLS = ["server_log_files", "server_log_report", "server_logs", "server_status"]
+VERSION = "archives-v1-candidate.2"
+PREVIOUS_VERSION = "archives-v1-candidate.1"
+PREVIOUS_READER_SHA = "0bc8a3fa60b3538d871f4ba7d36c20c58ff74c7be9becf060c71fef471d9b606"
 
 
 class InstallError(Exception):
@@ -80,7 +83,7 @@ def core_module():
 
 def verify_package():
     manifest = json.loads((PACKAGE / "release_manifest.json").read_bytes())
-    if manifest.get("version") != "archives-v1-candidate.1":
+    if manifest.get("version") != VERSION:
         abort("Unrecognized package manifest.")
     contents = {}
     for name, expected in manifest["files"].items():
@@ -207,6 +210,26 @@ def publish_file(path, data):
         os.unlink(temporary)
 
 
+def replace_file(path, data):
+    """Atomically replace one already-verified, root-owned installation file."""
+    root_owned(path)
+    info = path.lstat()
+    if info.st_nlink != 1:
+        abort("An installed file has unexpected links; nothing replaced.")
+    descriptor, temporary = tempfile.mkstemp(prefix=".stella-update-", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            os.fchown(stream.fileno(), 0, info.st_gid)
+            os.fchmod(stream.fileno(), stat.S_IMODE(info.st_mode))
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
 def verify_existing_target(expected):
     root_owned(TARGET, directory=True)
     actual_names = {p.name for p in TARGET.iterdir()}
@@ -309,9 +332,69 @@ def rollback(manifest):
     print("Release-3 status/recent-console bridge restored. Inactive archive files remain for review.")
 
 
+def update_reader(manifest, contents):
+    """Update only the known candidate-1 parser, preserving its scope and wrapper."""
+    drop = baseline(manifest, allow_ours=True)
+    root_owned(DROP)
+    if DROP.read_bytes() != drop:
+        abort("The active archive override differs; nothing updated.")
+    root_owned(TARGET, directory=True)
+    if {p.name for p in TARGET.iterdir()} != {*CODE_FILES, "config.json", "install-state.json"}:
+        abort("Unexpected archive-reader files found; nothing updated.")
+    for name in (*CODE_FILES, "config.json", "install-state.json"):
+        root_owned(TARGET / name)
+        if (TARGET / name).lstat().st_nlink != 1:
+            abort("An installed file has unexpected links; nothing updated.")
+    old_core = (TARGET / "archive_reader.py").read_bytes()
+    old_state = (TARGET / "install-state.json").read_bytes()
+    state = json.loads(old_state)
+    new_core = contents["archive_reader.py"]
+    core_hashes = {PREVIOUS_READER_SHA, digest(new_core)}
+    if (set(state) != {"version", "dropin_sha256", "files"}
+            or state["version"] not in (PREVIOUS_VERSION, manifest["version"])
+            or state["dropin_sha256"] != digest(drop)
+            or set(state["files"]) != {*CODE_FILES, "config.json"}
+            or state["files"]["archive_reader.py"] not in core_hashes
+            or digest(old_core) not in core_hashes):
+        abort("The existing reader is not a known update source; nothing updated.")
+    for name in ("bridge_archives.py", "config.json"):
+        if digest((TARGET / name).read_bytes()) != state["files"][name]:
+            abort("Existing wrapper or configuration differs from its recorded state; nothing updated.")
+    if (TARGET / "bridge_archives.py").read_bytes() != contents["bridge_archives.py"]:
+        abort("This update cannot replace a different bridge wrapper.")
+    config = core_module().load_config(str(TARGET / "config.json"))
+    checked_config = preflight(config["server_root"], manifest)
+    if checked_config != config:
+        abort("The server root identity changed; nothing updated.")
+    state["version"] = manifest["version"]
+    state["files"]["archive_reader.py"] = digest(new_core)
+    new_state = (json.dumps(state, sort_keys=True) + "\n").encode()
+    if old_core == new_core and old_state == new_state:
+        print("Saved-log parser update is already installed and the bridge is active.")
+        return
+    try:
+        replace_file(TARGET / "archive_reader.py", new_core)
+        replace_file(TARGET / "install-state.json", new_state)
+        restart_bridge()
+    except BaseException:
+        try:
+            # Do not overwrite files changed by another administrator mid-update.
+            if ((TARGET / "archive_reader.py").read_bytes() not in (old_core, new_core)
+                    or (TARGET / "install-state.json").read_bytes() not in (old_state, new_state)):
+                abort("An installation file changed during recovery.")
+            replace_file(TARGET / "archive_reader.py", old_core)
+            replace_file(TARGET / "install-state.json", old_state)
+            restart_bridge()
+            print("Previous saved-log parser restored after update failure.")
+        except Exception:
+            print("Parser recovery needs attention. Minecraft and PufferPanel were not restarted.")
+        raise
+    print("Saved-log parser updated and bridge active. Verify saved-log diagnostics through the live tools.")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("check", "install", "rollback", "probe"), nargs="?", default="check")
+    parser.add_argument("action", choices=("check", "install", "update", "rollback", "probe"), nargs="?", default="check")
     parser.add_argument("--server-root")
     args = parser.parse_args()
     lock = None
@@ -336,6 +419,8 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if args.action == "install":
             install(args.server_root, manifest, contents)
+        elif args.action == "update":
+            update_reader(manifest, contents)
         else:
             rollback(manifest)
         return 0

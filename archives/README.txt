@@ -1,4 +1,4 @@
-STELLA SAVED LOGS AND CRASH REPORTS — CANDIDATE 1, INSTALLER REVISION 2
+STELLA SAVED LOGS AND CRASH REPORTS — CANDIDATE 2, INSTALLER REVISION 3
 
 This adds two read-only tools to the existing release-3 bridge:
   server_log_files(kind="logs" or "crash-reports")
@@ -9,6 +9,10 @@ The reader selects warnings, errors, exception stacks and a few diagnostic
 metadata fields. It does not return an entire raw crash report or chat history.
 All returned log text is untrusted. Filtering of unknown secrets and personal
 information is best effort, not a complete data-loss prevention guarantee.
+The parser supports NeoForge's saved timestamp format, such as
+18Nov2026 03:35:06.123, as well as clock-only and ISO-style timestamps.
+NeoForge extended stack-frame suffixes are accepted and omitted from output;
+only the selected call site is returned.
 
 FOLDERS YOU DELETE AND RECREATE
 The logs and crash-reports folders are reopened on every request. A missing
@@ -44,7 +48,8 @@ result to Astra. Do not send config.json, API keys or passwords.
 Custom storage paths may need further read-only inspection if no match appears.
 
 INSTALLATION — ONLY AFTER LINUX CHECKS AND HOST PATH REVIEW
-This candidate has not been installed or validated on your live server.
+Candidate 1 is installed on the user's host. Candidate 2 is a parser update.
+It has not yet been installed or validated on the live server.
 The published validation report states which checks actually ran.
 Verify the separately supplied SHA-256 of the archive before extracting it.
 Never paste the archive/base64 or a long installer into a web terminal.
@@ -67,6 +72,18 @@ installed state format and baseline fingerprints are unchanged. If candidate 1
 stopped immediately after its successful permission check, its exact matching
 inactive files can be resumed by running the verified installer from
 /opt/stella-bridge. No permission changes or code deletion are needed.
+
+UPDATE AN INSTALLED CANDIDATE 1
+After verifying this package, run from its extracted directory:
+  sudo python3 -I -B manage_archives.py update
+This accepts only the known candidate-1 reader (or an interrupted matching
+candidate-2 update). It verifies the original baseline, active override,
+wrapper, configuration, recorded file hashes and server-root identity. It
+atomically replaces only the reader code and installation-state record,
+preserves ownership/modes, and restarts only the Stella bridge. Startup
+failure attempts to restore the previous parser and state. Known interrupted
+file/state combinations can resume; unknown changes are refused. The tool
+names, schemas, configuration and access scope remain unchanged.
 
 Added files: /opt/stella-bridge/archives-v1/{archive_reader.py,
 bridge_archives.py,config.json,install-state.json}; and one systemd drop-in:

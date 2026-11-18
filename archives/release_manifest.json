@@ -5,12 +5,12 @@
     "unit": "7f6190443a126a845f849438d6fc56a6cb2b5ecfb1312c3d31efcdab635a16e1"
   },
   "files": {
-    "README.txt": "18ef7ddb7a37cca831e58f28c3e4bbcb0c7c468bf7a9a9ce8e56ab194182c0ce",
-    "archive_reader.py": "0bc8a3fa60b3538d871f4ba7d36c20c58ff74c7be9becf060c71fef471d9b606",
+    "README.txt": "cfa7246d307e479a6ff5cd7f17a2fb76065534e49dce7f791f96a5ba07ed755a",
+    "archive_reader.py": "28dfa5902a7696e68bf453a05b4dc1562ecf3ac1c7d1f6c57eddea609999e744",
     "bridge_archives.py": "8d081a8047a8a7a57e45f2db7b746d599c5f8c03b185dde50fe17d31a4e04830",
     "inspect_host.py": "1c3a0f17f027a4de1ddd0a9e37ef13aa6279778a9b5d05abaef382b1e1503eac",
-    "manage_archives.py": "566b6eb6cde28d03fad4815783f8f547b6be7da1ecda70b348278753851cca45"
+    "manage_archives.py": "23db5033ddc5f563fc241f892572548df33cb458de7352a1d0d7d37fd6e29cc6"
   },
-  "installer_revision": 2,
-  "version": "archives-v1-candidate.1"
+  "installer_revision": 3,
+  "version": "archives-v1-candidate.2"
 }

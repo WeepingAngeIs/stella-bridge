@@ -299,12 +299,14 @@ URL = re.compile(r"(?i)\b(?:https?|ftp|wss?)://[^\s<>]+")
 PATH = re.compile(r"(?i)([a-z]:[\\/]|\\\\[^\s\\]+\\|(?:^|[\s=\"'(])/(?!/)[^\s/]+|/(?:home|root|Users|var|tmp|opt|srv|mnt|media|etc|run|data)(?:/|\b)|(?:^|[\s=(])(?:\./|\.\./|~/))")
 PERSONAL = re.compile(r"(?i)(<[^<>\r\n]{1,80}>|\b(?:player|players|whispered|whispers|joined the game|left the game|logged in with entity id|lost connection|issued server command|world seed|block location|entity location)\b)")
 RECORD = re.compile(
-    r"^\[(?P<timestamp>\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?|\d{4}-\d{2}-\d{2}[^\]\r\n]{0,40})\]"
+    r"^\[(?P<timestamp>\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?|\d{4}-\d{2}-\d{2}[^\]\r\n]{0,40}|"
+    r"\d{2}(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\d{4} "
+    r"\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?)\]"
     r"\s+\[[^\]\r\n]{1,120}/(?P<level>TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\]"
     r"(?:\s+\[[^\]\r\n]{1,120}\])?:?\s*(?P<message>.*)$"
 )
 EXCEPTION = re.compile(r"^(?:(?:Caused by|Suppressed):\s+)?(?P<class>(?:[A-Za-z_$][\w$]*\.)+[A-Za-z_$][\w$]*(?:Exception|Error|Throwable))(?::\s*(?P<message>.*))?$")
-FRAME = re.compile(r"^\s*at\s+([A-Za-z0-9_$./@-]+)\(([A-Za-z0-9_$.-]+(?::\d+)?|Native Method|Unknown Source)\)(?:\s+~?\[[^\]]{0,200}\])?\s*$")
+FRAME = re.compile(r"^\s*at\s+([A-Za-z0-9_$./@+-]+)\(([A-Za-z0-9_$.-]+(?::\d+)?|Native Method|Unknown Source)\)(?:\s+~?\[[^\]\r\n]{0,200}\])?(?:\s+\{[^}\r\n]{0,200}\})?\s*$")
 MORE = re.compile(r"^\s*\.\.\. \d{1,6} more\s*$")
 META = re.compile(r"^\s*(Time|Description|Minecraft Version|Java Version|Mod Version|Failure message):\s*(.{1,1000})$")
 

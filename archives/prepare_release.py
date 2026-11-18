@@ -54,7 +54,7 @@ def main():
     (fixtures / "bridge-logs-v1.py").write_bytes(recent)
     names = ("archive_reader.py", "bridge_archives.py", "manage_archives.py", "inspect_host.py", "README.txt")
     files = {name: (HERE / name).read_bytes().replace(b"\r\n", b"\n") for name in names}
-    manifest = {"version": "archives-v1-candidate.1", "installer_revision": 2,
+    manifest = {"version": "archives-v1-candidate.2", "installer_revision": 3,
                 "files": {n: sha(b) for n, b in files.items()},
                 "baseline": {"bridge.py": STATUS_SHA, "bridge-logs-v1.py": sha(recent), "unit": unit_hash}}
     payload = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
@@ -62,7 +62,7 @@ def main():
     files["release_manifest.json"] = payload
     files["SHA256SUMS"] = "".join(f"{sha(b)}  {n}\n" for n, b in sorted(files.items())).encode()
     args.output.mkdir(parents=True, exist_ok=True)
-    target = args.output / "stella-archives-v1-candidate.1.tar.gz"
+    target = args.output / "stella-archives-v1-candidate.2.tar.gz"
     with target.open("wb") as output:
         import gzip
         with gzip.GzipFile(filename="", fileobj=output, mode="wb", mtime=0) as compressed:

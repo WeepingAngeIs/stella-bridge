@@ -19,6 +19,7 @@ sys.path.insert(0, str(HERE))
 import archive_reader
 
 LOG = b"[19:30:00] [Server thread/ERROR]: Synthetic server issue\njava.lang.IllegalStateException: synthetic failure\n\tat example.World.tick(World.java:42)\n"
+SAVED_LOG = b"[18Nov2026 19:30:00.123] [Server thread/ERROR] [example/]: Synthetic server issue\njava.lang.IllegalStateException: synthetic failure\n\tat TRANSFORMER/example@1.0+test/example.World.tick(World.java:42) ~[example.jar%231!/:1.0] {re:mixin}\n"
 CRASH_NAME = "crash-2026-11-17_19.30.00-server.txt"
 requests = []
 
@@ -71,7 +72,7 @@ async def exercise(base, state, game, port):
     crashes = game / "crash-reports"
     logs.mkdir()
     crashes.mkdir()
-    (logs / "latest.log").write_bytes(LOG)
+    (logs / "latest.log").write_bytes(SAVED_LOG)
     (crashes / CRASH_NAME).write_bytes(b"Description: Synthetic crash\njava.lang.IllegalStateException: fixture\n\tat example.World.tick(World.java:42)\n")
     params = StdioServerParameters(command=sys.executable, args=["-I", "-B", str(target / "bridge_archives.py"),
                                   "--config", str(config), "--archives-config", str(archives)])
@@ -98,12 +99,14 @@ async def exercise(base, state, game, port):
             assert listing["ok"] and len(listing["files"]) == 1, listing
             report = await call("server_log_report", {"file_id": listing["files"][0]["file_id"]}, archive=True)
             assert report["ok"] and report["counts"]["error"] == 1, report
+            assert report["diagnostics"][0]["timestamp"] == "18Nov2026 19:30:00.123", report
+            assert "World.java:42" in report["diagnostics"][1]["stack"][0], report
             report = await call("server_log_report", {"kind": "crash-reports"}, archive=True)
             assert report["ok"] and report["counts"]["exception"] == 1, report
             forbidden = await call("server_log_report", {"file_id": "../server.properties"}, archive=True)
             assert forbidden["error"] == "invalid_argument", forbidden
 
-            for directory, filename, kind, data in ((logs, "latest.log", "logs", LOG),
+            for directory, filename, kind, data in ((logs, "latest.log", "logs", SAVED_LOG),
                                                     (crashes, CRASH_NAME, "crash-reports", b"Description: Regenerated\njava.lang.RuntimeException: new report\n")):
                 (directory / filename).unlink()
                 directory.rmdir()

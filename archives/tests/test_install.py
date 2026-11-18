@@ -198,7 +198,92 @@ class InstallTests(unittest.TestCase):
             self.install()
         self.assertEqual(config.read_bytes(), before)
 
+    def prepare_update(self):
+        self.install()
+        self.stack.enter_context(patch.object(setup, "PREVIOUS_READER_SHA",
+                                              setup.digest(self.contents["archive_reader.py"])))
+        updated = dict(self.contents, **{"archive_reader.py": b"updated fixture reader\n"})
+        manifest = dict(self.manifest, version=setup.VERSION)
+        return manifest, updated
+
+    def test_parser_update_preserves_scope_and_can_resume(self):
+        manifest, updated = self.prepare_update()
+        untouched = {name: (self.target / name).read_bytes() for name in ("bridge_archives.py", "config.json")}
+        drop_before = self.drop.read_bytes()
+        setup.update_reader(manifest, updated)
+        self.assertEqual((self.target / "archive_reader.py").read_bytes(), updated["archive_reader.py"])
+        state = json.loads((self.target / "install-state.json").read_bytes())
+        self.assertEqual(state["version"], setup.VERSION)
+        self.assertEqual(state["files"]["archive_reader.py"], setup.digest(updated["archive_reader.py"]))
+        restarts = sum("restart" in call for call in self.calls)
+        setup.update_reader(manifest, updated)
+        self.assertEqual(sum("restart" in call for call in self.calls), restarts)
+        for name, value in untouched.items():
+            self.assertEqual((self.target / name).read_bytes(), value)
+        self.assertEqual(self.drop.read_bytes(), drop_before)
+        self.assert_originals_preserved()
+
+    def test_parser_update_rejects_unknown_code(self):
+        manifest, updated = self.prepare_update()
+        (self.target / "archive_reader.py").write_bytes(b"unknown administrator change\n")
+        before = {p.name: p.read_bytes() for p in self.target.iterdir()}
+        with self.assertRaises(setup.InstallError):
+            setup.update_reader(manifest, updated)
+        self.assertEqual({p.name: p.read_bytes() for p in self.target.iterdir()}, before)
+
+    def test_parser_update_recovers_interrupted_code_publication(self):
+        manifest, updated = self.prepare_update()
+        (self.target / "archive_reader.py").write_bytes(updated["archive_reader.py"])
+        setup.update_reader(manifest, updated)
+        state = json.loads((self.target / "install-state.json").read_bytes())
+        self.assertEqual(state["version"], setup.VERSION)
+        self.assertEqual(state["files"]["archive_reader.py"], setup.digest(updated["archive_reader.py"]))
+
+    def test_parser_update_recovers_interrupted_state_publication(self):
+        manifest, updated = self.prepare_update()
+        path = self.target / "install-state.json"
+        state = json.loads(path.read_bytes())
+        state["version"] = setup.VERSION
+        state["files"]["archive_reader.py"] = setup.digest(updated["archive_reader.py"])
+        path.write_text(json.dumps(state))
+        setup.update_reader(manifest, updated)
+        self.assertEqual((self.target / "archive_reader.py").read_bytes(), updated["archive_reader.py"])
+
+    def test_parser_update_failed_restart_restores_previous_reader_and_state(self):
+        manifest, updated = self.prepare_update()
+        before = {p.name: p.read_bytes() for p in self.target.iterdir()}
+        self.fail_next_restart = True
+        with self.assertRaises(setup.InstallError):
+            setup.update_reader(manifest, updated)
+        self.assertEqual({p.name: p.read_bytes() for p in self.target.iterdir()}, before)
+        self.assertTrue(self.active)
+        self.assert_originals_preserved()
+
+    def test_parser_update_rejects_changed_configuration(self):
+        manifest, updated = self.prepare_update()
+        path = self.target / "config.json"
+        path.write_bytes(path.read_bytes() + b"\n")
+        before = (self.target / "archive_reader.py").read_bytes()
+        with self.assertRaises(setup.InstallError):
+            setup.update_reader(manifest, updated)
+        self.assertEqual((self.target / "archive_reader.py").read_bytes(), before)
+
+    def test_parser_update_rejects_root_replacement(self):
+        manifest, updated = self.prepare_update()
+        self.config["root_identity"]["inode"] += 1
+        before = (self.target / "archive_reader.py").read_bytes()
+        with self.assertRaises(setup.InstallError):
+            setup.update_reader(manifest, updated)
+        self.assertEqual((self.target / "archive_reader.py").read_bytes(), before)
+
+    def test_parser_update_rejects_linked_reader(self):
+        manifest, updated = self.prepare_update()
+        os.link(self.target / "archive_reader.py", self.base / "other-file")
+        before = (self.target / "archive_reader.py").read_bytes()
+        with self.assertRaises(setup.InstallError):
+            setup.update_reader(manifest, updated)
+        self.assertEqual((self.base / "other-file").read_bytes(), before)
+
 
 if __name__ == "__main__":
     unittest.main()
-

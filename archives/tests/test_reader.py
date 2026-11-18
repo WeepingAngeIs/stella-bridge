@@ -44,6 +44,38 @@ class ParsingTests(unittest.TestCase):
         result = reader.parse_diagnostics(data, "logs")
         self.assertEqual(result["counts"], {"warn": 1, "fatal": 1})
 
+    def test_neoforge_saved_timestamps_and_extended_stack_frames(self):
+        data = (b"[18Nov2026 03:35:06.123] [Worker/WARN] [example/]: Synthetic warning\n"
+                b"[18Nov2026 03:35:06.124] [Worker/ERROR] [example/]: Synthetic failure\n"
+                b"java.lang.IllegalStateException: synthetic cause\n"
+                b"\tat TRANSFORMER/example@1.0+test/example.World.tick(World.java:42) ~[example.jar%231!/:1.0] {re:mixin}\n"
+                b"\tat java.base/java.lang.Thread.run(Thread.java:1) [?:?] {}\n")
+        result = reader.parse_diagnostics(data, "logs")
+        self.assertEqual(result["counts"], {"warn": 1, "error": 1, "exception": 1})
+        self.assertEqual(result["diagnostics"][0]["timestamp"], "18Nov2026 03:35:06.123")
+        self.assertEqual(len(result["diagnostics"][-1]["stack"]), 2)
+        self.assertIn("World.java:42", result["diagnostics"][-1]["stack"][0])
+        self.assertNotIn("re:mixin", json.dumps(result))
+
+    def test_neoforge_private_and_info_records_reset_exception_context(self):
+        for level, message in (("INFO", "ordinary information"), ("WARN", "password=fixture-private"),
+                               ("ERROR", "Could not load player PrivateName")):
+            with self.subTest(level=level):
+                data = (f"[18Nov2026 03:35:06.123] [Worker/{level}] [example/]: {message}\n"
+                        "java.lang.RuntimeException: private-continuation\n"
+                        "\tat private.Example.run(Example.java:1) [fixture.jar] {}\n").encode()
+                output = json.dumps(reader.parse_diagnostics(data, "logs"))
+                self.assertNotIn("private-continuation", output)
+                self.assertNotIn("PrivateName", output)
+                self.assertNotIn("Example.java", output)
+
+    def test_neoforge_archive_and_months(self):
+        for month in ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"):
+            with self.subTest(month=month):
+                raw = f"[01{month}2026 03:35:06.123] [Server thread/WARN] [example/]: Synthetic archive warning\n".encode()
+                decoded = reader.decompress_gzip(gzip.compress(raw), time.monotonic() + 5)
+                self.assertEqual(reader.parse_diagnostics(decoded, "logs")["counts"], {"warn": 1})
+
     def test_empty_is_not_health_claim(self):
         result = reader.parse_diagnostics(b"", "logs")
         self.assertIn("recognized", result["summary"])
