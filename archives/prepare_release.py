@@ -54,7 +54,8 @@ def main():
     (fixtures / "bridge-logs-v1.py").write_bytes(recent)
     names = ("archive_reader.py", "bridge_archives.py", "manage_archives.py", "inspect_host.py", "README.txt")
     files = {name: (HERE / name).read_bytes().replace(b"\r\n", b"\n") for name in names}
-    manifest = {"version": "archives-v1-candidate.1", "files": {n: sha(b) for n, b in files.items()},
+    manifest = {"version": "archives-v1-candidate.1", "installer_revision": 2,
+                "files": {n: sha(b) for n, b in files.items()},
                 "baseline": {"bridge.py": STATUS_SHA, "bridge-logs-v1.py": sha(recent), "unit": unit_hash}}
     payload = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
     (HERE / "release_manifest.json").write_bytes(payload)

@@ -1,4 +1,4 @@
-STELLA SAVED LOGS AND CRASH REPORTS — CANDIDATE 1
+STELLA SAVED LOGS AND CRASH REPORTS — CANDIDATE 1, INSTALLER REVISION 2
 
 This adds two read-only tools to the existing release-3 bridge:
   server_log_files(kind="logs" or "crash-reports")
@@ -59,6 +59,14 @@ service unit hashes. It requires the bridge to be active and refuses unrelated
 service overrides. It checks existing account access first. It does not add
 permissions, edit credentials, broaden PufferPanel scopes, or download software.
 Missing log folders are permitted if the server root is accessible.
+
+Installer correction: subprocess checks now use the installed code directory,
+so they do not inherit a private operator home. Stage names and exit codes
+identify failed checks while raw command output remains private. Reader code,
+installed state format and baseline fingerprints are unchanged. If candidate 1
+stopped immediately after its successful permission check, its exact matching
+inactive files can be resumed by running the verified installer from
+/opt/stella-bridge. No permission changes or code deletion are needed.
 
 Added files: /opt/stella-bridge/archives-v1/{archive_reader.py,
 bridge_archives.py,config.json,install-state.json}; and one systemd drop-in:

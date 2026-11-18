@@ -44,13 +44,20 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def run(command, *, expected=(0,), timeout=15):
+def run(command, *, expected=(0,), timeout=15, step="Host check"):
     try:
-        result = subprocess.run([str(x) for x in command], capture_output=True, timeout=timeout, check=False)
+        # Do not inherit a private operator directory after dropping privileges.
+        # FastMCP examines .env in its cwd even with Python's isolated mode.
+        result = subprocess.run([str(x) for x in command], capture_output=True,
+                                timeout=timeout, check=False, cwd=str(BASE))
+    except subprocess.TimeoutExpired:
+        abort(f"{step} timed out; private command output was suppressed.")
     except Exception:
-        abort("A required host check could not run; no command output was disclosed.")
-    if result.returncode not in expected or len(result.stdout) > 262144:
-        abort("A required host check failed; details were suppressed to protect private data.")
+        abort(f"{step} could not run; private command output was suppressed.")
+    if result.returncode not in expected:
+        abort(f"{step} failed (exit {result.returncode}); private command output was suppressed.")
+    if len(result.stdout) > 262144:
+        abort(f"{step} exceeded the output limit; private command output was suppressed.")
     return result.stdout.decode("utf-8", errors="strict").strip()
 
 
@@ -168,7 +175,8 @@ except Exception:
     print('archive_probe_failed')
     sys.exit(1)
 '''
-    result = run(["runuser", "-u", ACCOUNT, "--", PYTHON, "-I", "-B", "-c", program, root])
+    result = run(["runuser", "-u", ACCOUNT, "--", PYTHON, "-I", "-B", "-c", program, root],
+                 step="Log-folder access check")
     print("Reader permission checks: " + result)
     return config
 
@@ -212,8 +220,8 @@ def verify_existing_target(expected):
 
 
 def restart_bridge():
-    run(["systemctl", "daemon-reload"])
-    run(["systemctl", "restart", SERVICE], timeout=35)
+    run(["systemctl", "daemon-reload"], step="Service configuration reload")
+    run(["systemctl", "restart", SERVICE], timeout=35, step="Stella bridge restart")
     time.sleep(3)
     if run(["systemctl", "is-active", SERVICE], expected=(0, 3)) != "active":
         abort("The updated bridge did not remain active.")
@@ -252,7 +260,8 @@ def install(root, manifest, contents):
                         (stage / name).unlink()
                 stage.rmdir()
     listed = run(["runuser", "-u", ACCOUNT, "--", PYTHON, "-I", "-B", TARGET / "bridge_archives.py",
-                  "--config", EXISTING_CONFIG, "--archives-config", TARGET / "config.json", "--check-tools"])
+                  "--config", EXISTING_CONFIG, "--archives-config", TARGET / "config.json", "--check-tools"],
+                 step="Tool-definition check")
     if json.loads(listed) != TOOLS:
         abort("The four expected tool definitions were not available; original service preserved.")
     if DROP_DIR.exists() or DROP_DIR.is_symlink():
